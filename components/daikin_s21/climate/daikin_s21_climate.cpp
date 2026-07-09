@@ -244,9 +244,15 @@ void DaikinS21Climate::control(const climate::ClimateCall &call) {
 
   // Target change is only relevant to the unit if it causes a setpoint change, track separately
   bool target_changed{};
-  const DaikinC10 new_target = call.get_target_temperature().has_value() ? call.get_target_temperature().value() :  // Target provided
-                               (mode_params != nullptr) ? mode_params->load_target() :  // Try to use the saved target if call does not include it
-                               TEMPERATURE_INVALID;
+  DaikinC10 new_target = call.get_target_temperature().has_value() ? call.get_target_temperature().value() :  // Target provided
+                         (mode_params != nullptr) ? mode_params->load_target() :  // Try to use the saved target if call does not include it
+                         TEMPERATURE_INVALID;
+  if (new_target != TEMPERATURE_INVALID) {
+    // Snap the requested target onto the unit's setpoint grid so the displayed target is
+    // always a value the unit can hold (e.g. 72.0F/22.2C is between 0.5C steps and would
+    // otherwise need rounding at every command).
+    new_target = ((new_target + (SETPOINT_STEP / 2)) / SETPOINT_STEP) * SETPOINT_STEP;
+  }
   if (this->target_temperature != new_target) {
     this->target_temperature = new_target.f_degc();
     target_changed = true;
