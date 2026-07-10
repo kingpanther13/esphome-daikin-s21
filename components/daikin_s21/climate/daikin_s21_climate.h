@@ -37,6 +37,15 @@ class DaikinS21Climate : public climate::Climate,
   void set_temperature_reference_sensor(sensor::Sensor * const sensor) { this->temperature_sensor_ = sensor; }
   void set_humidity_reference_sensor(sensor::Sensor * sensor);
   void set_setpoint_mode_config(climate::ClimateMode mode, DaikinC10 offset, DaikinC10 min, DaikinC10 max);
+  // Runtime-adjustable user offset (degC delta added to the commanded setpoint) for a
+  // setpoint mode. Lets a number entity counter the unit's designed regulate-below-
+  // setpoint band without a recompile. No-op for non-setpoint modes.
+  void set_mode_offset(const climate::ClimateMode mode, const float offset_degc) {
+    if (auto * const params = this->get_setpoint_mode_params(mode)) {
+      params->offset = offset_degc;
+      this->check_offset = true;
+    }
+  }
 
  protected:
   climate::ClimateTraits traits_{};
