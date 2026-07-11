@@ -46,6 +46,21 @@ class DaikinS21Climate : public climate::Climate,
       this->check_offset = true;
     }
   }
+  // Band override: while active, the unit setpoint is derived from this value instead
+  // of target_temperature. The published dial is never touched, save_target still
+  // persists the dial, and external-change adoption keeps working. float parameter on
+  // purpose: DaikinC10 has an implicit int ctor in raw tenths, a silent 10x trap.
+  void set_band_override(const float value_degc) {
+    this->band_override_value = value_degc;
+    this->band_override_active = true;
+    this->check_offset = true;  // force recompute next cycle
+  }
+  void clear_band_override() {
+    if (this->band_override_active) {
+      this->band_override_active = false;
+      this->check_offset = true;  // recompute back to the dial-derived setpoint
+    }
+  }
 
  protected:
   climate::ClimateTraits traits_{};
@@ -65,6 +80,8 @@ class DaikinS21Climate : public climate::Climate,
   sensor::Sensor *temperature_sensor_{};
   sensor::Sensor *humidity_sensor_{};
   DaikinC10 unit_setpoint{TEMPERATURE_INVALID};
+  DaikinC10 band_override_value{};
+  bool band_override_active{};
   uint16_t last_ir_counter{};
   bool ir_counter_primed{};
   bool setpoint_dither{true};

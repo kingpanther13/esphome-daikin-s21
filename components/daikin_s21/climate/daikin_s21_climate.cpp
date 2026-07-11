@@ -182,6 +182,7 @@ void DaikinS21Climate::loop() {
     // Not a setpoint mode
     // No previous target to recover
     this->target_resolved = true;
+    this->band_override_active = false;  // an override targets a setpoint; drop it when the mode has none
     // Clear setpoints and publish
     if (std::isfinite(this->target_temperature)) {
       this->target_temperature = NAN;
@@ -395,8 +396,12 @@ bool DaikinS21Climate::calc_unit_setpoint(const DaikinSetpointMode& mode_params,
   const auto unit_temperature = this->get_parent()->get_temp_inside();
   const auto sensor_offset = unit_temperature - current_temperature;
 
-  // Find the ideal unit setpoint by applying the sensor and user correction offsets
-  auto new_unit_setpoint = static_cast<DaikinC10>(this->target_temperature) + sensor_offset + mode_params.offset;
+  // Find the ideal unit setpoint by applying the sensor and user correction offsets.
+  // An active band override stands in for the dial without ever modifying it.
+  const DaikinC10 effective_target = this->band_override_active
+      ? this->band_override_value
+      : static_cast<DaikinC10>(this->target_temperature);
+  auto new_unit_setpoint = effective_target + sensor_offset + mode_params.offset;
 
   // Round to Daikin's internal setpoint resolution
   if (this->setpoint_dither) {
@@ -426,7 +431,7 @@ bool DaikinS21Climate::calc_unit_setpoint(const DaikinSetpointMode& mode_params,
   const bool unit_setpoint_changed = (this->unit_setpoint != new_unit_setpoint);
   if (unit_setpoint_changed) {
     ESP_LOGI(TAG, "Unit setpoint recalculated: %.1f -> %.1f%+.1f%+.1f = %.1f",
-        this->unit_setpoint.f_degc(), this->target_temperature, sensor_offset.f_degc(), mode_params.offset.f_degc(), new_unit_setpoint.f_degc());
+        this->unit_setpoint.f_degc(), effective_target.f_degc(), sensor_offset.f_degc(), mode_params.offset.f_degc(), new_unit_setpoint.f_degc());
     this->unit_setpoint = new_unit_setpoint;
   }
 
