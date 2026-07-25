@@ -24,6 +24,11 @@ class DaikinS21 : public PollingComponent {
   void set_debug_comms(const bool set) { this->debug_comms = set; }
   void set_debug_protocol(const bool set) { this->debug_protocol = set; }
 
+  // FAULT INJECTION (repro instrumentation only, never merge to deploy-combined):
+  // arms a one-shot drop of the next OFF-mode climate write, simulating a lost
+  // S21 power-off command so the park-off adoption race can be triggered on demand.
+  void arm_drop_next_off_write() { this->drop_next_off_write = true; }
+
   // external command action
   void set_climate_settings(DaikinClimateSettings climate);
   void set_swing_mode(climate::ClimateSwingMode swing);
@@ -214,6 +219,7 @@ class DaikinS21 : public PollingComponent {
   // debugging support
   bool debug_comms{};
   bool debug_protocol{};
+  bool drop_next_off_write{};  // FAULT INJECTION one-shot, see arm_drop_next_off_write()
 
   // settings
   CommandState<DaikinClimateSettings> climate{};
