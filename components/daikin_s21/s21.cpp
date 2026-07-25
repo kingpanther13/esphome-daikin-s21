@@ -390,6 +390,15 @@ void DaikinS21::dump_config() {
  * Set the climate settings bundle and trigger a write to the unit.
  */
 void DaikinS21::set_climate_settings(const DaikinClimateSettings climate) {
+  // FAULT INJECTION (repro instrumentation only): when armed, drop exactly one
+  // OFF-mode write before staging, simulating a power-off command lost on the
+  // serial link. The unit keeps running and polls keep reporting the true
+  // (still-on) state, which is the trigger observed on 2026-07-25 05:16 EDT.
+  if (this->drop_next_off_write && (climate.mode == climate::CLIMATE_MODE_OFF)) {
+    this->drop_next_off_write = false;
+    ESP_LOGW(TAG, "FAULT INJECTION: dropping this OFF climate write (one-shot)");
+    return;
+  }
   if (this->get_climate() != climate) {
     ESP_LOGD(TAG, "Mode: %s  Setpoint: %.1f  Fan: %s",
       LOG_STR_ARG(climate::climate_mode_to_string(climate.mode)),
