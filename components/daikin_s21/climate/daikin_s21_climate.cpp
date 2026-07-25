@@ -144,10 +144,14 @@ void DaikinS21Climate::loop() {
     // combined with a reference sensor offset, re-derive the target from the unit's shifted
     // value on every occurrence. Units that don't answer the IR counter query keep the old
     // adopt-always behavior.
-    if ((std::isfinite(this->target_temperature) == false) || // controller init or external mode change to a setpoint mode
-        ((this->unit_setpoint != reported_climate.setpoint) && // external change to setpoint...
-         (ir_activity || (this->target_resolved == false) || // ...seen alongside remote activity (or still resolving after boot)
-          (this->get_parent()->ir_counter_available() == false)))) { // ...or IR activity is unknowable on this unit
+    // The NaN-target arm is gated too: control(OFF) nulls the target, and if the power-off
+    // write is lost or the unit lags, the next poll still reports a setpoint mode - adopting
+    // there overwrites the user's dial with the (offset/band-driven) unit setpoint and
+    // save_target() persists it. Boot init still adopts via target_resolved == false.
+    if (((std::isfinite(this->target_temperature) == false) || // controller init or external mode change to a setpoint mode
+         (this->unit_setpoint != reported_climate.setpoint)) && // external change to setpoint...
+        (ir_activity || (this->target_resolved == false) || // ...seen alongside remote activity (or still resolving after boot)
+         (this->get_parent()->ir_counter_available() == false))) { // ...or IR activity is unknowable on this unit
       // Assume the reported setpoint (external IR remote change) should be the target temperature
       auto new_target = reported_climate.setpoint;
       // When first initializing, we don't know if the reported setpoint is from the IR remote or an offset value from a
